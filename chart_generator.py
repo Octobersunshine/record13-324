@@ -62,18 +62,60 @@ def generate_area_chart(
             )
 
     if stacked:
-        ax.stackplot(
-            x,
-            *series_values,
-            labels=series_names,
-            colors=PALETTE[: len(series_names)],
-            alpha=alpha,
-        )
+        has_negative = any(np.any(sv < 0) for sv in series_values)
+        if has_negative:
+            pos_vals = [np.maximum(sv, 0) for sv in series_values]
+            neg_vals = [np.minimum(sv, 0) for sv in series_values]
+
+            ax.stackplot(
+                x,
+                *pos_vals,
+                labels=series_names,
+                colors=PALETTE[: len(series_names)],
+                alpha=alpha,
+                baseline="zero",
+            )
+            ax.stackplot(
+                x,
+                *neg_vals,
+                labels=[""] * len(series_names),
+                colors=PALETTE[: len(series_names)],
+                alpha=alpha * 0.85,
+                baseline="zero",
+            )
+        else:
+            ax.stackplot(
+                x,
+                *series_values,
+                labels=series_names,
+                colors=PALETTE[: len(series_names)],
+                alpha=alpha,
+                baseline="zero",
+            )
     else:
         for i, (name, values) in enumerate(zip(series_names, series_values)):
+            color = PALETTE[i % len(PALETTE)]
             ax.fill_between(
-                x, values, alpha=alpha, label=name, color=PALETTE[i % len(PALETTE)]
+                x,
+                0,
+                values,
+                where=(values >= 0),
+                alpha=alpha,
+                label=name,
+                color=color,
+                interpolate=True,
             )
+            ax.fill_between(
+                x,
+                0,
+                values,
+                where=(values < 0),
+                alpha=alpha * 0.85,
+                color=color,
+                interpolate=True,
+            )
+
+    ax.axhline(y=0, color="#333", linewidth=0.8, linestyle="-")
 
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())

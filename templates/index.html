@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面积图生成服务</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f2f5; color: #333; min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #4E79A7, #76B7B2);
+            color: white; padding: 24px 0; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header h1 { font-size: 28px; font-weight: 700; }
+        .header p { margin-top: 8px; opacity: 0.9; font-size: 14px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+        .card {
+            background: white; border-radius: 12px; padding: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px;
+        }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: #4E79A7; }
+        .tabs {
+            display: flex; gap: 0; border-bottom: 2px solid #e8e8e8; margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px; cursor: pointer; border: none; background: none;
+            font-size: 14px; color: #666; border-bottom: 2px solid transparent;
+            margin-bottom: -2px; transition: all 0.2s;
+        }
+        .tab.active { color: #4E79A7; border-bottom-color: #4E79A7; font-weight: 600; }
+        .tab:hover { color: #4E79A7; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+        input[type="text"], input[type="number"], textarea, select {
+            width: 100%; padding: 10px 12px; border: 1px solid #d9d9d9;
+            border-radius: 6px; font-size: 14px; transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none; border-color: #4E79A7; box-shadow: 0 0 0 2px rgba(78,121,167,0.15);
+        }
+        textarea { font-family: "Courier New", monospace; resize: vertical; min-height: 200px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .form-group { margin-bottom: 16px; }
+        .btn {
+            padding: 10px 24px; border: none; border-radius: 6px; font-size: 14px;
+            cursor: pointer; font-weight: 600; transition: all 0.2s;
+        }
+        .btn-primary { background: #4E79A7; color: white; }
+        .btn-primary:hover { background: #3d6490; }
+        .btn-secondary { background: #f0f2f5; color: #333; }
+        .btn-secondary:hover { background: #e0e3e8; }
+        .btn-group { display: flex; gap: 12px; margin-top: 16px; }
+        .chart-result {
+            text-align: center; padding: 20px;
+            background: #fafafa; border-radius: 8px; border: 1px dashed #d9d9d9;
+        }
+        .chart-result img { max-width: 100%; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+        .chart-placeholder { color: #999; padding: 60px 0; font-size: 15px; }
+        .radio-group { display: flex; gap: 16px; margin-bottom: 16px; }
+        .radio-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 400; }
+        .radio-group input[type="radio"] { accent-color: #4E79A7; }
+        .file-upload {
+            border: 2px dashed #d9d9d9; border-radius: 8px; padding: 40px;
+            text-align: center; cursor: pointer; transition: all 0.2s;
+        }
+        .file-upload:hover { border-color: #4E79A7; background: rgba(78,121,167,0.03); }
+        .file-upload input[type="file"] { display: none; }
+        .file-upload .icon { font-size: 36px; color: #4E79A7; margin-bottom: 8px; }
+        .file-upload .text { color: #666; font-size: 14px; }
+        .file-upload .hint { color: #999; font-size: 12px; margin-top: 4px; }
+        .error-msg { color: #E15759; background: #fff2f0; padding: 12px; border-radius: 6px; margin-top: 12px; font-size: 13px; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.active { display: block; }
+        .spinner {
+            border: 3px solid #f3f3f3; border-top: 3px solid #4E79A7;
+            border-radius: 50%; width: 36px; height: 36px;
+            animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>面积图生成服务</h1>
+        <p>上传时间和数值数据，一键生成堆叠面积图或普通面积图</p>
+    </div>
+
+    <div class="container">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <div class="card">
+                    <h2>数据输入</h2>
+                    <div class="tabs">
+                        <button class="tab active" data-tab="json">JSON 数据</button>
+                        <button class="tab" data-tab="csv">CSV 文本</button>
+                        <button class="tab" data-tab="upload">文件上传</button>
+                    </div>
+
+                    <div id="tab-json" class="tab-content active">
+                        <div class="form-group">
+                            <label>JSON 数据（times 为时间数组，series 为数据系列对象）</label>
+                            <textarea id="json-data">{
+  "times": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07"],
+  "series": {
+    "产品A销售额": [120, 150, 180, 200, 170, 210, 250],
+    "产品B销售额": [80, 100, 90, 120, 140, 130, 160],
+    "产品C销售额": [50, 60, 70, 65, 80, 90, 100]
+  }
+}</textarea>
+                        </div>
+                    </div>
+
+                    <div id="tab-csv" class="tab-content">
+                        <div class="form-group">
+                            <label>CSV 文本（第一行为表头）</label>
+                            <textarea id="csv-data">date,产品A,产品B,产品C
+2026-01-01,120,80,50
+2026-01-02,150,100,60
+2026-01-03,180,90,70
+2026-01-04,200,120,65
+2026-01-05,170,140,80
+2026-01-06,210,130,90
+2026-01-07,250,160,100</textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>时间列名</label>
+                                <input type="text" id="csv-time-col" value="date">
+                            </div>
+                            <div class="form-group">
+                                <label>数值列名（逗号分隔）</label>
+                                <input type="text" id="csv-value-cols" value="产品A,产品B,产品C">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-upload" class="tab-content">
+                        <div class="file-upload" id="drop-zone">
+                            <div class="icon">&#128196;</div>
+                            <div class="text">点击或拖拽文件到此处</div>
+                            <div class="hint">支持 .csv 和 .json 文件</div>
+                            <input type="file" id="file-input" accept=".csv,.json">
+                        </div>
+                        <div id="upload-csv-fields" style="display:none;">
+                            <div class="form-row" style="margin-top:16px;">
+                                <div class="form-group">
+                                    <label>时间列名</label>
+                                    <input type="text" id="upload-time-col" value="date">
+                                </div>
+                                <div class="form-group">
+                                    <label>数值列名（逗号分隔）</label>
+                                    <input type="text" id="upload-value-cols" value="">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>图表配置</h2>
+                    <div class="form-group">
+                        <label>图表类型</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="stacked" value="false" checked> 普通面积图</label>
+                            <label><input type="radio" name="stacked" value="true"> 堆叠面积图</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>图表标题</label>
+                            <input type="text" id="chart-title" value="面积图">
+                        </div>
+                        <div class="form-group">
+                            <label>透明度 (0-1)</label>
+                            <input type="number" id="chart-alpha" value="0.6" min="0.1" max="1" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>X轴标签</label>
+                            <input type="text" id="chart-xlabel" value="时间">
+                        </div>
+                        <div class="form-group">
+                            <label>Y轴标签</label>
+                            <input type="text" id="chart-ylabel" value="数值">
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="btn-generate">生成面积图</button>
+                        <button class="btn btn-secondary" id="btn-demo">加载示例</button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h2>生成结果</h2>
+                    <div id="loading" class="loading">
+                        <div class="spinner"></div>
+                        <div>正在生成图表...</div>
+                    </div>
+                    <div id="error-container"></div>
+                    <div id="chart-container" class="chart-result">
+                        <div class="chart-placeholder">配置参数并点击"生成面积图"查看结果</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const $ = id => document.getElementById(id);
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        const dropZone = $('drop-zone');
+        const fileInput = $('file-input');
+        let uploadedFile = null;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#4E79A7'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#d9d9d9'; });
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#d9d9d9';
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+        function handleFile(file) {
+            uploadedFile = file;
+            dropZone.querySelector('.text').textContent = file.name;
+            const csvFields = $('upload-csv-fields');
+            csvFields.style.display = file.name.endsWith('.csv') ? 'block' : 'none';
+        }
+
+        function getActiveTab() {
+            return document.querySelector('.tab.active').dataset.tab;
+        }
+
+        function getStacked() {
+            return document.querySelector('input[name="stacked"]:checked').value === 'true';
+        }
+
+        function showError(msg) {
+            $('error-container').innerHTML = '<div class="error-msg">' + msg + '</div>';
+        }
+
+        function clearError() {
+            $('error-container').innerHTML = '';
+        }
+
+        $('btn-generate').addEventListener('click', async () => {
+            clearError();
+            $('loading').classList.add('active');
+            $('chart-container').innerHTML = '';
+
+            try {
+                const tab = getActiveTab();
+                let response;
+
+                if (tab === 'json') {
+                    const jsonData = $('json-data').value;
+                    const parsed = JSON.parse(jsonData);
+                    const body = {
+                        ...parsed,
+                        format: 'json',
+                        stacked: getStacked(),
+                        title: $('chart-title').value,
+                        xlabel: $('chart-xlabel').value,
+                        ylabel: $('chart-ylabel').value,
+                        alpha: parseFloat($('chart-alpha').value),
+                    };
+                    response = await fetch('/api/chart', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                    });
+                } else if (tab === 'csv') {
+                    const body = {
+                        format: 'csv',
+                        csv_text: $('csv-data').value,
+                        time_col: $('csv-time-col').value,
+                        value_cols: $('csv-value-cols').value.split(',').map(s => s.trim()),
+                        stacked: getStacked(),
+                        title: $('chart-title').value,
+                        xlabel: $('chart-xlabel').value,
+                        ylabel: $('chart-ylabel').value,
+                        alpha: parseFloat($('chart-alpha').value),
+                    };
+                    response = await fetch('/api/chart', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                    });
+                } else if (tab === 'upload') {
+                    if (!uploadedFile) { showError('请先选择文件'); $('loading').classList.remove('active'); return; }
+                    const formData = new FormData();
+                    formData.append('file', uploadedFile);
+                    formData.append('stacked', getStacked());
+                    formData.append('title', $('chart-title').value);
+                    formData.append('xlabel', $('chart-xlabel').value);
+                    formData.append('ylabel', $('chart-ylabel').value);
+                    formData.append('alpha', $('chart-alpha').value);
+                    if (uploadedFile.name.endsWith('.csv')) {
+                        formData.append('time_col', $('upload-time-col').value);
+                        formData.append('value_cols', $('upload-value-cols').value);
+                    }
+                    response = await fetch('/api/chart/upload', { method: 'POST', body: formData });
+                }
+
+                const result = await response.json();
+                if (!response.ok) { showError(result.error || '生成失败'); $('loading').classList.remove('active'); return; }
+
+                $('chart-container').innerHTML = '<img src="' + result.url + '" alt="面积图">';
+            } catch (e) {
+                showError('请求失败: ' + e.message);
+            } finally {
+                $('loading').classList.remove('active');
+            }
+        });
+
+        $('btn-demo').addEventListener('click', async () => {
+            clearError();
+            $('loading').classList.add('active');
+            $('chart-container').innerHTML = '';
+            try {
+                const stacked = getStacked();
+                const resp = await fetch('/api/demo?stacked=' + stacked);
+                const result = await resp.json();
+                $('chart-container').innerHTML = '<img src="' + result.url + '" alt="示例面积图">';
+            } catch (e) {
+                showError('加载示例失败: ' + e.message);
+            } finally {
+                $('loading').classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

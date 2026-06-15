@@ -39,6 +39,8 @@ def generate_area_chart(
     times,
     series_dict,
     stacked=False,
+    stack_baseline="zero",
+    normalize=False,
     title="面积图",
     xlabel="时间",
     ylabel="数值",
@@ -61,9 +63,21 @@ def generate_area_chart(
                 f"Series length {len(sv)} does not match time length {n}"
             )
 
+    if stacked and normalize:
+        stacked_matrix = np.vstack(series_values)
+        col_sums = np.sum(stacked_matrix, axis=0)
+        col_sums[col_sums == 0] = 1
+        series_values = [sv / col_sums * 100 for sv in series_values]
+        if ylabel == "数值":
+            ylabel = "占比 (%)"
+
     if stacked:
+        valid_baselines = {"zero", "sym", "wiggle", "weighted_wiggle"}
+        baseline = stack_baseline if stack_baseline in valid_baselines else "zero"
+
         has_negative = any(np.any(sv < 0) for sv in series_values)
-        if has_negative:
+
+        if baseline == "zero" and has_negative:
             pos_vals = [np.maximum(sv, 0) for sv in series_values]
             neg_vals = [np.minimum(sv, 0) for sv in series_values]
 
@@ -90,7 +104,7 @@ def generate_area_chart(
                 labels=series_names,
                 colors=PALETTE[: len(series_names)],
                 alpha=alpha,
-                baseline="zero",
+                baseline=baseline,
             )
     else:
         for i, (name, values) in enumerate(zip(series_names, series_values)):

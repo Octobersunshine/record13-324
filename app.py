@@ -26,6 +26,8 @@ def create_chart():
 
         fmt = data.get("format", "json")
         stacked = data.get("stacked", False)
+        stack_baseline = data.get("stack_baseline", "zero")
+        normalize = data.get("normalize", False)
         title = data.get("title", "面积图")
         xlabel = data.get("xlabel", "时间")
         ylabel = data.get("ylabel", "数值")
@@ -37,12 +39,14 @@ def create_chart():
             value_cols = data["value_cols"]
             buf = generate_from_csv_data(
                 csv_text, time_col, value_cols, stacked=stacked,
+                stack_baseline=stack_baseline, normalize=normalize,
                 title=title, xlabel=xlabel, ylabel=ylabel, alpha=alpha,
             )
         else:
             json_str = json.dumps(data)
             buf = generate_from_json_data(
                 json_str, stacked=stacked,
+                stack_baseline=stack_baseline, normalize=normalize,
                 title=title, xlabel=xlabel, ylabel=ylabel, alpha=alpha,
             )
 
@@ -65,6 +69,8 @@ def upload_chart():
 
         file = request.files["file"]
         stacked = request.form.get("stacked", "false").lower() == "true"
+        stack_baseline = request.form.get("stack_baseline", "zero")
+        normalize = request.form.get("normalize", "false").lower() == "true"
         title = request.form.get("title", "面积图")
         xlabel = request.form.get("xlabel", "时间")
         ylabel = request.form.get("ylabel", "数值")
@@ -75,12 +81,20 @@ def upload_chart():
         content = file.read().decode("utf-8-sig")
 
         if file.filename.endswith(".json"):
-            buf = generate_from_json_data(content, stacked=stacked, title=title, xlabel=xlabel, ylabel=ylabel, alpha=alpha)
+            buf = generate_from_json_data(
+                content, stacked=stacked,
+                stack_baseline=stack_baseline, normalize=normalize,
+                title=title, xlabel=xlabel, ylabel=ylabel, alpha=alpha,
+            )
         elif file.filename.endswith(".csv"):
             if not time_col or not value_cols_str:
                 return jsonify({"error": "CSV requires time_col and value_cols"}), 400
             value_cols = [c.strip() for c in value_cols_str.split(",")]
-            buf = generate_from_csv_data(content, time_col, value_cols, stacked=stacked, title=title, xlabel=xlabel, ylabel=ylabel, alpha=alpha)
+            buf = generate_from_csv_data(
+                content, time_col, value_cols, stacked=stacked,
+                stack_baseline=stack_baseline, normalize=normalize,
+                title=title, xlabel=xlabel, ylabel=ylabel, alpha=alpha,
+            )
         else:
             return jsonify({"error": "Unsupported file format. Use .csv or .json"}), 400
 
@@ -118,6 +132,10 @@ def demo_chart():
     returns = np.cumsum(np.random.randn(30) * 5 + 20).clip(min=0).tolist()
     visits = np.cumsum(np.random.randn(30) * 8 + 30).clip(min=0).tolist()
 
+    stacked = request.args.get("stacked", "false").lower() == "true"
+    stack_baseline = request.args.get("baseline", "zero")
+    normalize = request.args.get("normalize", "false").lower() == "true"
+
     data = {
         "times": times,
         "series": {
@@ -125,14 +143,18 @@ def demo_chart():
             "退货额": returns,
             "访问量": visits,
         },
-        "stacked": request.args.get("stacked", "false").lower() == "true",
+        "stacked": stacked,
+        "stack_baseline": stack_baseline,
+        "normalize": normalize,
         "title": "示例面积图 - 30天数据趋势",
         "ylabel": "数值",
     }
 
     buf = generate_from_json_data(
         json.dumps(data),
-        stacked=data["stacked"],
+        stacked=stacked,
+        stack_baseline=stack_baseline,
+        normalize=normalize,
         title=data["title"],
         ylabel=data["ylabel"],
     )

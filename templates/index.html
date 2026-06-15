@@ -170,6 +170,26 @@
                             <label><input type="radio" name="stacked" value="true"> 堆叠面积图</label>
                         </div>
                     </div>
+                    <div id="stacked-options" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>堆叠基线模式</label>
+                                <select id="stack-baseline">
+                                    <option value="zero">zero - 从零基线</option>
+                                    <option value="sym">sym - 对称于零</option>
+                                    <option value="wiggle">wiggle - 最小平方斜率</option>
+                                    <option value="weighted_wiggle">weighted_wiggle - 加权最小平方</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>百分比堆叠</label>
+                                <div class="radio-group" style="margin-bottom:0;">
+                                    <label><input type="radio" name="normalize" value="false" checked> 原始数值</label>
+                                    <label><input type="radio" name="normalize" value="true"> 百分比(%)</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>图表标题</label>
@@ -254,6 +274,21 @@
             return document.querySelector('input[name="stacked"]:checked').value === 'true';
         }
 
+        function getNormalize() {
+            return document.querySelector('input[name="normalize"]:checked').value === 'true';
+        }
+
+        function getStackBaseline() {
+            return $('stack-baseline').value;
+        }
+
+        document.querySelectorAll('input[name="stacked"]').forEach(r => {
+            r.addEventListener('change', () => {
+                const stacked = getStacked();
+                $('stacked-options').style.display = stacked ? 'block' : 'none';
+            });
+        });
+
         function showError(msg) {
             $('error-container').innerHTML = '<div class="error-msg">' + msg + '</div>';
         }
@@ -278,6 +313,8 @@
                         ...parsed,
                         format: 'json',
                         stacked: getStacked(),
+                        stack_baseline: getStackBaseline(),
+                        normalize: getNormalize(),
                         title: $('chart-title').value,
                         xlabel: $('chart-xlabel').value,
                         ylabel: $('chart-ylabel').value,
@@ -295,6 +332,8 @@
                         time_col: $('csv-time-col').value,
                         value_cols: $('csv-value-cols').value.split(',').map(s => s.trim()),
                         stacked: getStacked(),
+                        stack_baseline: getStackBaseline(),
+                        normalize: getNormalize(),
                         title: $('chart-title').value,
                         xlabel: $('chart-xlabel').value,
                         ylabel: $('chart-ylabel').value,
@@ -310,6 +349,8 @@
                     const formData = new FormData();
                     formData.append('file', uploadedFile);
                     formData.append('stacked', getStacked());
+                    formData.append('stack_baseline', getStackBaseline());
+                    formData.append('normalize', getNormalize());
                     formData.append('title', $('chart-title').value);
                     formData.append('xlabel', $('chart-xlabel').value);
                     formData.append('ylabel', $('chart-ylabel').value);
@@ -338,7 +379,10 @@
             $('chart-container').innerHTML = '';
             try {
                 const stacked = getStacked();
-                const resp = await fetch('/api/demo?stacked=' + stacked);
+                const baseline = getStackBaseline();
+                const normalize = getNormalize();
+                const url = `/api/demo?stacked=${stacked}&baseline=${baseline}&normalize=${normalize}`;
+                const resp = await fetch(url);
                 const result = await resp.json();
                 $('chart-container').innerHTML = '<img src="' + result.url + '" alt="示例面积图">';
             } catch (e) {
